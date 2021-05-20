@@ -1,0 +1,392 @@
+---
+title: "STAT2170 ASSIGNMENT"
+author: "Quach Bao Chau Bui"
+date: "12/05/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1:
+
+## a)
+
+```{r surgery}
+data <- read.table("surg.dat",header = TRUE)
+surg.data <- data
+surg.data$gender <- NULL
+plot(surg.data,panel=panel.smooth)
+```
+
+It does not appear that there are any strong linear relationship between predictors themselves accept for moderate to weak positive trend between the variable liver index and 3 other predictor: blood clotting index, prognosis index and enzyme function index. There seems to be a moderate to strong positive relationship between the predictor parameter blood, prognosis, enzyme and age to the response variable survival. This relationship however does not seem linear due to the divergence of data points mostly on the left tail of the linear predictor (red line) which signifies a logarithmic relationship instead of linear. The parameter age does not seems to have any impact on the response variable survival time.
+
+The correlation matrix is calculated by removing gender category. This is due to the binary format setup of gender in this report which contradict with the requirement of input for the calculation of correlation coefficient that the x has to be numeric.
+
+```{r error=TRUE}
+cor(data)
+```
+
+## b) Correlation Matrix
+
+```{r surg}
+cor(surg.data)
+
+```
+
+There seems to be weak correlation between most pair of predictor variable accept for liver which have a relatively stronger and more apparent relationship with blood, prognosis and enzyme. This table confirm the observation made from the scattered plot in question a about this relationship as well as further identifying some moderate trend that are not apparent from the plot. Such subtle relationship are the ones between enzyme index and blood index negative correlation as well as age of patient and liver index negative correlation.
+
+
+## c) 
+First we need to modify the gender category in the original data set #data to have binary numerical value with Male = 1 , Female = 0
+```{r}
+data$gender[data$gender=="M"] <- 1
+data$gender[data$gender=="F"] <- 0
+head(data)
+```
+
+
+### 1) Mathematical multiple regression model for this data:
+
+$$
+survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + liver\beta_4 + age\beta_5 +gender\beta_6 +\epsilon
+$$
+$$
+\epsilon \sim N(0,\sigma^2)
+$$
+
+```{r results='asis'}
+Parameter <- c("blood","prognosis","enzyme","liver","age","gender","survival")
+Definition <- c("Blood clotting Index","Prognosis Index","Enzyme function Index",
+                "Liver function Index","Age of the patient (in years)",
+                "Gender of the patient (Male = 1, Female = 0)",
+                "Survival time of the patient after surgery (in days)")
+pardeftab <- data.frame(Parameter,Definition)
+knitr::kable(pardeftab, align = "ll")
+```
+
+### 2)  Hypotheses for the Overall ANOVA test of multiple regression:
+ $$
+ H_0: \beta_1 =\beta_2=\beta_3=\beta_4=\beta_5=\beta_6=0
+ $$
+ 
+ $$H_1: \beta_i \neq 0$$
+For at least 1 beta parameter (not all are equal to 0)
+
+### 3+4)
+ANOVA table for individual parameter
+
+```{r}
+surglm <- lm(survival~blood+prognosis+enzyme+liver+age+gender,data =data)
+surg.aov=anova(surglm)
+surg.aov
+```
+
+
+
+ANOVA table for the overall multiple regression model and F statistic
+
+```{r}
+reg.df <- sum(surg.aov$`Df`[1:6])
+total.df <- sum(reg.df,surg.aov$`Df`[7])
+res.df <- surg.aov$`Df`[7]
+ssreg <- sum(surg.aov$`Sum Sq`[1:6])
+ssres <- surg.aov$`Sum Sq`[7]
+sstotal <- sum(ssreg,ssres)
+msreg <- ssreg/reg.df
+msres <- ssres/res.df
+f.stat <- msreg/msres
+
+Source <- c("Regession","Residual","Total")
+D.f <- c(reg.df,res.df,total.df)
+S.S <- c(ssreg,ssres,sstotal)
+M.S <- c(msreg,msres,".")
+F <- c(f.stat,".",".")
+ANOVA <- data.frame(Source,D.f,S.S,M.S,F)
+ANOVA
+```
+
+### 5)  Null distribution: 
+F distribution with $df_1$=6 and $df_2$=47
+$$
+H_0:F_obs \sim F(6,47)
+$$
+
+### 6) P-value
+```{r}
+1-pf(f.stat,df1= reg.df,res.df)
+```
+### 7) Conclusion:
+Statistical conclusion: since the P-value is much less than 0.05, hence we have significant evidence to reject $H_0$ in favor of $H_1$. Hence, it can be concluded that there exist a relationship between the response variable with at least 1 of the predictor variable.
+
+Contextual conclusion: Since we reject the $H_0$, this means that the survival time of patient can be estimated using one or more predictor variable such as blood, prognosis, enzyme,liver,age,gender
+
+## d) 
+Step 1: Based on the overall ANOVA table in the third question of part c, the parameter with the highest P-value is gender. We will remove this parameter and refit it using multiple linear regression model below:
+$$
+survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + liver\beta_4 + age\beta_5 +\epsilon
+$$
+$$
+\epsilon \sim N(0,\sigma^2)
+$$
+```{r}
+anova(lm(survival~blood+prognosis+enzyme+liver+age,data =data))
+```
+Step 2: Based on this new model, the P-value for liver and age parameter are still not significant. Hence, we remove the parameter with the highest P-value which is age in this case and refit it using the model:
+
+$$
+survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + liver\beta_4 +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+
+```{r}
+anova(lm(survival~blood+prognosis+enzyme+liver,data =data))
+```
+Step 3: Finally, we remove liver parameter and refit the data based on the model
+$$
+survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3  +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+
+```{r}
+anova(lm(survival~blood+prognosis+enzyme,data =data))
+```
+Thus, since all parameter are now significant, this model is the best multiple regression model to explain this data set
+
+
+## e) Model assumption validation:
+The multiple linear regression have a few assumptions in its model and each needs to be satisfy before we can proceed to conclude our findings in previous part.
+```{r}
+par(mfrow = c(1, 2))
+final.lm <- lm(survival~blood+prognosis+enzyme,data =data)
+qqnorm(final.lm$residuals, main = "Normal Q-Q plot of residuals")
+plot(final.lm$fitted, final.lm$residuals, main = "Residuals vs Fitted",
+     xlab = "Fitted", ylab = "Residuals")
+```
+
+
+### 1) $\epsilon \sim N(0,\sigma^2)$
+Based on the Q-Q plot generated, the residual does not follow a straight line and have extreme tail behavior on both tail. This means that $\epsilon$ is not normally distributed and this assumption is not satisfied.
+
+### 2) Variance of residual is constant:
+This can be checked by plotting the residual against fitted value. This graph shows a fan shape in the scatter plot which represent a decreasing variance as the fitted value increase.
+There seems to be a slight curvature in this scattered plot which can represent quadratic relationship between the residual and the fitted. 
+
+### 3) Residual against other predictor
+```{r}
+par(mfrow = c(1, 3))
+plot(data$blood, final.lm$residuals, main = "Residuals vs Blood",
+     xlab = "Blood", ylab = "Residuals")
+plot(data$prognosis, final.lm$residuals, main = "Residuals vs Prognosis",
+     xlab = "Prognosis", ylab = "Residuals")
+plot(data$enzyme, final.lm$residuals, main = "Residuals vs Enzyme",
+     xlab = "Enzyme", ylab = "Residuals")
+```
+This graph show that the points does seems to have some patterns and is focused in a certain region on the plot. There also seems to have a weak fan shape in the scattered plot of residual against prognosis which also violate the assumption of this model.
+
+Thus, since this model violate all 3 assumptions of multiple regression, it is unfit to be used to explain survival time.
+
+## f)
+First create the variable $log_survival$ in the original data with gender variable already transformed 
+
+```{r}
+data$log.survival = log(data$survival)
+head(data)
+```
+
+Then, regress this variable against all predictor based on the mathematical model:
+$$
+log_survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + liver\beta_4 + age\beta_5 +gender\beta_6 +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+Now we compute the ANOVA table to show the significance level of individual predictor:
+```{r}
+anova(lm(log.survival~blood+prognosis+enzyme+liver+age+gender,data =data))
+```
+Step 1: First we remove the predictor with the highest P-value which is liver in this case and refit the data with the remaining predictor using the model:
+
+$$
+log_survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + age\beta_4 +gender\beta_5 +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+
+```{r}
+anova(lm(log.survival~blood+prognosis+enzyme+age+gender,data =data))
+```
+Step 2: Further remove parameter gender and fit the model using:
+$$
+log_survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 + age\beta_4 +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+```{r}
+anova(lm(log.survival~blood+prognosis+enzyme+age,data =data))
+```
+Step 3: Remove parameter age and fit the model using:
+$$
+log_survival =\beta_0 + blood\beta_1 + prognosis\beta_2 + enzyme\beta_3 +\epsilon
+$$
+$$\epsilon \sim N(0,\sigma^2)$$
+```{r}
+anova(lm(log.survival~blood+prognosis+enzyme,data =data))
+```
+Thus, since all predictor are now significant, we can conclude that this model is the best multiple regression to explain our data.
+
+## g)
+Assessing the 3 assumption in the multiple linear regression:
+```{r}
+par(mfrow = c(1, 2))
+logfinal.lm <- lm(log.survival~blood+prognosis+enzyme,data =data)
+qqnorm(logfinal.lm$residuals, main = "Normal Q-Q plot of residuals")
+plot(logfinal.lm$fitted, logfinal.lm$residuals, main = "Residuals vs Fitted",
+     xlab = "Fitted", ylab = "Residuals")
+```
+
+### 1) $\epsilon \sim N(0,\sigma^2)$
+Based on the Q-Q plot generated, the data points are now closer to a straight line and thus signify that the residual is normally distributed. This aligns with the assumption in multiple regression of normality of residual.
+
+### 2) Variance of residual is constant:
+This can be checked by plotting the residual against fitted value. This graph shows a more scattered and evenly distributed data point. This means that there is a random variation with no clear relationship between the residual and the fitted value. There does not seem to have a centered or fan shaped data region and thus signifies that the residual have a constant variance. 
+
+
+### 3) Residual against other predictor
+```{r}
+par(mfrow = c(1, 3))
+plot(data$blood, logfinal.lm$residuals, main = "Residuals vs Blood",
+     xlab = "Blood", ylab = "Residuals")
+plot(data$prognosis, logfinal.lm$residuals, main = "Residuals vs Prognosis",
+     xlab = "Prognosis", ylab = "Residuals")
+plot(data$enzyme, logfinal.lm$residuals, main = "Residuals vs Enzyme",
+     xlab = "Enzyme", ylab = "Residuals")
+```
+This graph show that the residual does not seem to have any relationship with the predictor parameter. There seems to have a weak fan shape in the scattered plot of residual against blood however, this trend is generally weak and can be neglected since all the other assumptions are met.
+
+Thus, since all 3 assumptions of multiple linear regression are met, it can be said that data after transformation can be appropriately explained using linear regression with 3 predictor parameter: blood, prognosis and enzyme. This model is more superior than the original model since it transform the extreme value at the 2 end of the residual and converge them to approximately normal distribution. This can be seen by comparing the Q-Q plot in g) and e). This transformation also fixed the issue of changing variance as well as eliminating a moderate relationship between residual and fitted value in e). 
+
+
+
+
+
+
+\newpage
+# Question 2:
+## a)
+First load the data into R and investigate the number of trials that is conducted for each driver. 
+```{r}
+dataq2 <- read.table("kml.dat",header = TRUE)
+head(dataq2)
+
+A <- length(which(dataq2$driver=="A"))
+B <- length(which(dataq2$driver=="B"))
+C <- length(which(dataq2$driver=="C"))
+D <- length(which(dataq2$driver=="D"))
+driver.length <-data.frame(car=c("A","B","C","D"),length=c(A,B,C,D))
+driver.length
+```
+Then, investigate the number of trial conducted for each car:
+```{r}
+one <- length(which(dataq2$car=="one"))
+two <- length(which(dataq2$car=="two"))
+three <- length(which(dataq2$car=="three"))
+four <- length(which(dataq2$car=="four"))
+five <- length(which(dataq2$car=="five"))
+car.length <- data.frame(driver=c("one","two","three","four","five"),length=c(one,two,three,four,five))
+car.length
+```
+
+Thus, the study is a balanced study with equal number of trial conducted for each sub category.
+
+## b)
+First we need to transform the column car to numerical value:
+```{r}
+dataq2$car[dataq2$car=="one"] <- 1
+dataq2$car[dataq2$car=="two"] <- 2
+dataq2$car[dataq2$car=="three"] <- 3
+dataq2$car[dataq2$car=="four"] <- 4
+dataq2$car[dataq2$car=="five"] <- 5
+```
+
+
+
+2 preliminary graph:
+```{r}
+with(dataq2, interaction.plot(driver, car, kmL,
+                              trace.label = "car",
+                              xlab = "driver", ylab = "kml"),col=1:4)
+with(dataq2, interaction.plot(car, driver, kmL,
+                            trace.label = "driver",
+                            xlab = "car", ylab = "kml"),col=1:4)
+```
+The graph shows a small change in slope between driver C and the rest of the driver, especially at the point for car 1 and car 5. This means that there might be an interaction between the this parameter and the others.
+The box plot will be generated in c)
+
+## c)
+Construct the two way ANOVA table for the data:
+
+```{r}
+dataq2ANOVA = aov(kmL ~ car*driver,data = dataq2)
+summary(dataq2ANOVA)
+```
+
+### 1) Test 1: Interaction: 
+$$
+H_0: Y_ij=0
+$$
+for all i,j
+
+
+
+$$
+H_A: not\ all\ Y_ij= 0
+$$
+Based on the ANOVA table, due to the low P-value, we do not reject te null hypothesis for interaction term and eliminate it from the model before refitting the data.
+
+
+ANOVA without interaction term:
+```{r}
+dataq2ANOVA2 = aov(kmL ~ car+driver,data = dataq2)
+summary(dataq2ANOVA2)
+```
+
+
+### 2) Main effect car: 
+$$
+H_0 : \alpha_i = 0
+$$
+for all i
+$$
+H_A : not\ all\ \alpha_i = 0
+$$
+After refitting the model without the interaction term, the P-value of predictor "car" is much less than 0.05, thus, we have enough evidence to reject the null hypothesis in favor of the alternative. 
+            
+### 3) Main effect driver: 
+$$
+H_0 : \beta_j = 0
+$$
+for all j
+            
+$$
+H_A : not\ all\ \beta_j = 0
+$$
+After refitting the model without the interaction term, the P-value of predictor "driver" is also much less than 0.05, thus, we have enough evidence to reject the null hypothesis in favor of the alternative.
+
+### 4) Checking assumption:
+Generate box plot, QQ-plot and residual plot to check for assumption:
+
+```{r}
+boxplot(kmL ~ car + driver, data = dataq2)
+plot(dataq2ANOVA, which = 1:2)
+```
+It is hard to draw any conclusion from the data presented in the box plot since there are only 2 observation in each group, thus we expect a high variability in each categorical mean.
+
+Based on the Q_Q plot, the data point mapped a straight line which indicate the residual follows a normal distribution.
+The graph of residual and the fitted value shows a scattered and evenly spread out data points. This demonstrate random variation between the fitted value and the residual. There does not seem to be any fan shape in the data and thus, confirm the constant variance assumption of the residual.
+
+Hence, since all the assumption for this model has been satisfied, we can conclude that there is a relationship between "driver" and car efficiency as well as "car" and car efficiency.
+
+### d) Conclusion:
+Since all the assumption for this model has been satisfied, we can conclude that there is a relationship between "driver" and car efficiency as well as "car" and car efficiency. 
+
+
+As demonstrated in the graph in part b),the driver B have the first rank in efficiency regardless of the car variable. The rank of car efficiency for other driver also does not change with the car variable. This shows that there is a very weak to no relationship between car and driver variable.
+
